@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Pipeline Explorer — BPE Tokenizer & 3D Embeddings</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans (UI) & JetBrains Mono (Tokens, IDs, Vector Math) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+          colors: {
+            cream: '#FFFDF5',
+            butter: '#FFF9E6',
+            'butter-deep': '#FEF3C7',
+            'warm-border': '#FDE68A',
+            amber: {
+              500: '#F59E0B',
+              600: '#D97706',
+              700: '#B45309',
+            },
+            charcoal: '#1F2937',
+          },
+          boxShadow: {
+            warm: '0 4px 20px -2px rgba(217, 119, 6, 0.08), 0 2px 6px -1px rgba(217, 119, 6, 0.04)',
+            'warm-lg': '0 10px 30px -5px rgba(217, 119, 6, 0.12), 0 4px 10px -2px rgba(217, 119, 6, 0.05)',
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Plotly.js CDN for Interactive 3D Scatter Plot -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <style>
+    /* Base Warm Ivory Theme & Custom Scrollbars */
+    body {
+      background-color: #FFFDF5;
+      color: #1F2937;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    }
+
+    /* Subtle dot-grid background pattern for visual depth */
+    .bg-warm-dots {
+      background-image: radial-gradient(rgba(217, 119, 6, 0.14) 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
+
+    /* Custom Warm Scrollbar */
+    .warm-scroll::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .warm-scroll::-webkit-scrollbar-track {
+      background: #FFF9E6;
+      border-radius: 999px;
+    }
+    .warm-scroll::-webkit-scrollbar-thumb {
+      background: #FCD34D;
+      border-radius: 999px;
+    }
+    .warm-scroll::-webkit-scrollbar-thumb:hover {
+      background: #F59E0B;
+    }
+
+    /* Custom Range Slider Styling */
+    input[type="range"].warm-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      background: #FDE68A;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"].warm-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #D97706;
+      border: 3px solid #FFFDF5;
+      box-shadow: 0 2px 6px rgba(180, 83, 9, 0.35);
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type="range"].warm-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+      background: #B45309;
+    }
+
+    /* Segmented Mode Toggle Animation */
+    .mode-pill-bg {
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Subtle Fade-in for dynamic steps */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-up {
+      animation: fadeSlideUp 0.25s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-cream text-charcoal antialiased selection:bg-amber-200 selection:text-charcoal overflow-x-hidden">
+
+  <!-- ==================== STICKY HEADER ==================== -->
+  <header class="sticky top-0 z-40 bg-cream/90 backdrop-blur-md border-b border-warm-border shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+      <!-- Brand Identity -->
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md shrink-0">
+          <!-- Inline SVG Neural/Token Icon -->
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <polyline stroke-linecap="round" stroke-linejoin="round" points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line stroke-linecap="round" stroke-linejoin="round" x1="12" y1="22.08" x2="12" y2="12" />
+          </svg>
+        </div>
+        <div class="truncate">
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-charcoal truncate">LLM PIPELINE EXPLORER</h1>
+            <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-warm-border">Interactive Lab</span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-gray-500 truncate">From Raw Text → Sub-Word Tokens → 3D Vector Embeddings</p>
+        </div>
+      </div>
+
+      <!-- Quick-Jump Navigation Pills -->
+      <nav class="flex items-center gap-2 shrink-0" aria-label="Section Navigation">
+        <a href="#part1-tokenizer" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-butter hover:bg-butter-deep text-charcoal border border-warm-border transition-all flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          <span>Part 1: BPE Tokenizer</span>
+        </a>
+        <a href="#part2-embeddings" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-butter hover:bg-butter-deep text-charcoal border border-warm-border transition-all flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-600"></span>
+          <span>Part 2: 3D Embeddings</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ==================== HERO PIPELINE BANNER ==================== -->
+  <section class="bg-warm-dots border-b border-warm-border/70">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 sm:py-9">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div class="max-w-2xl">
+          <p class="text-xs font-bold uppercase tracking-widest text-amber-600 mb-1.5">How Large Language Models Read Text</p>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-charcoal tracking-tight leading-tight">
+            Explore Sub-Word Tokenization &amp; 3D Semantic Space
+          </h2>
+          <p class="mt-2 text-sm sm:text-base text-gray-600 leading-relaxed">
+            LLMs cannot read raw letters directly. First, a <strong class="text-charcoal font-semibold">Byte-Pair Encoding (BPE)</strong> tokenizer splits text into frequent sub-word IDs. Next, those IDs are projected into a <strong class="text-charcoal font-semibold">geometric embedding space</strong> where meaning—not just spelling—determines distance.
+          </p>
+        </div>
+
+        <!-- Mini Pipeline Flow Diagram -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 bg-butter/95 border border-warm-border rounded-2xl p-3.5 sm:p-4 shadow-warm shrink-0">
+          <div class="px-3 py-2 rounded-xl bg-white border border-warm-border text-center">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Input</div>
+            <div class="font-mono text-xs font-semibold text-charcoal mt-0.5">"smartest"</div>
+          </div>
+          <span class="text-amber-500 font-bold">→</span>
+          <div class="px-3 py-2 rounded-xl bg-white border border-warm-border text-center">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-600">BPE Split</div>
+            <div class="font-mono text-xs font-semibold text-charcoal mt-0.5">smart + est</div>
+          </div>
+          <span class="text-amber-500 font-bold">→</span>
+          <div class="px-3 py-2 rounded-xl bg-white border border-warm-border text-center">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-600">Token IDs</div>
+            <div class="font-mono text-xs font-semibold text-charcoal mt-0.5">[2, 34, 19, 3]</div>
+          </div>
+          <span class="text-amber-500 font-bold">→</span>
+          <div class="px-3 py-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white text-center shadow-sm">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-100">3D Vector</div>
+            <div class="font-mono text-xs font-semibold mt-0.5">(x, y, z)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-12">
+
+    <!-- ===================================================================== -->
+    <!-- PART 1: SUB-WORD TOKENIZER & VOCABULARY BUILDER (BPE)                 -->
+    <!-- ===================================================================== -->
+    <section id="part1-tokenizer" class="scroll-mt-20 space-y-6">
+      <!-- Section Header -->
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b-2 border-warm-border">
+        <div>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-warm-border mb-2">
+            PART 1 OF 2
+          </span>
+          <h3 class="text-2xl font-extrabold text-charcoal tracking-tight">Sub-Word Tokenizer &amp; Vocabulary Builder (BPE)</h3>
+          <p class="text-sm text-gray-600 mt-1">Train a real client-side Byte-Pair Encoding model on a text corpus, inspect learned merge rules, and encode new sentences step-by-step.</p>
+        </div>
+        <div id="vocabSummaryBadge" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-butter border border-warm-border text-xs font-mono font-semibold text-charcoal shrink-0">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span>Vocab: -- tokens</span>
+        </div>
+      </div>
+
+      <!-- Row 1: Corpus Input + Vocabulary Table (Two-Column Grid) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left Column (5 cols): Corpus Input & BPE Training Controls -->
+        <div class="lg:col-span-5 bg-butter rounded-2xl border border-warm-border p-5 sm:p-6 shadow-warm space-y-5">
+          <div class="flex items-center justify-between">
+            <h4 class="text-base font-bold text-charcoal flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-amber-500 text-white text-xs font-bold flex items-center justify-center">1</span>
+              Training Corpus &amp; Merge Rules
+            </h4>
+            <button id="resetCorpusBtn" type="button" class="text-xs font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2 transition">
+              Reset Demo Corpus
+            </button>
+          </div>
+
+          <div>
+            <label for="corpusInput" class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+              Training Sentences (Corpus)
+            </label>
+            <textarea
+              id="corpusInput"
+              rows="6"
+              class="w-full rounded-xl bg-white border border-warm-border p-3.5 text-sm text-charcoal font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition warm-scroll"
+              placeholder="Enter training text with repeated root words..."
+            >low lower lowest play playing played player smart smarter new newer newest wide wider widest fast faster fastest cold colder coldest the lowest player is playing a smart game and getting smarter every day</textarea>
+            <p class="mt-1.5 text-xs text-gray-500">
+              Repeated roots like <span class="font-mono text-charcoal bg-white px-1 rounded border border-warm-border">smart</span>, <span class="font-mono text-charcoal bg-white px-1 rounded border border-warm-border">er&lt;/w&gt;</span>, and <span class="font-mono text-charcoal bg-white px-1 rounded border border-warm-border">est&lt;/w&gt;</span> allow BPE to generalize to unseen words like <span class="font-mono font-semibold text-amber-700">smartest</span>.
+            </p>
+          </div>
+
+          <!-- Merge Steps Slider -->
+          <div class="bg-white rounded-xl border border-warm-border p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <label for="mergeStepsSlider" class="text-xs font-bold uppercase tracking-wider text-gray-600">
+                BPE Merge Steps
+              </label>
+              <span id="mergeStepsValue" class="font-mono text-sm font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-warm-border">
+                28 merges
+              </span>
+            </div>
+            <input
+              id="mergeStepsSlider"
+              type="range"
+              min="5"
+              max="60"
+              value="28"
+              class="w-full warm-slider"
+            />
+            <div class="flex justify-between text-[11px] font-mono text-gray-400">
+              <span>5 (character-heavy)</span>
+              <span>30</span>
+              <span>60 (whole words)</span>
+            </div>
+          </div>
+
+          <!-- Build Button -->
+          <button
+            id="buildVocabBtn"
+            type="button"
+            class="w-full py-3 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+            <span>Build Vocabulary</span>
+          </button>
+
+          <!-- Training Status Note -->
+          <div id="bpeTrainNote" class="text-xs text-gray-600 bg-white/80 rounded-xl border border-warm-border/80 px-3.5 py-2.5 leading-relaxed">
+            Ready to train BPE merges...
+          </div>
+        </div>
+
+        <!-- Right Column (7 cols): Searchable Vocabulary Table -->
+        <div class="lg:col-span-7 bg-butter rounded-2xl border border-warm-border p-5 sm:p-6 shadow-warm flex flex-col">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <h4 class="text-base font-bold text-charcoal flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-amber-500 text-white text-xs font-bold flex items-center justify-center">2</span>
+              Learned Vocabulary Table
+            </h4>
+
+            <!-- Real-Time Search Filter -->
+            <div class="relative w-full sm:w-64">
+              <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                id="vocabSearchInput"
+                type="text"
+                placeholder="Search ID, token, or rule..."
+                class="w-full pl-9 pr-3 py-2 rounded-xl bg-white border border-warm-border text-xs font-mono text-charcoal focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="bg-white rounded-xl border border-warm-border overflow-hidden flex-1">
+            <div class="max-h-[370px] overflow-y-auto warm-scroll">
+              <table class="w-full text-left border-collapse">
+                <thead class="sticky top-0 z-10 bg-butter-deep/90 backdrop-blur-sm border-b border-warm-border text-[11px] font-bold uppercase tracking-wider text-gray-600">
+                  <tr>
+                    <th class="py-2.5 px-3.5 w-20">Token ID</th>
+                    <th class="py-2.5 px-3.5">Sub-word Token</th>
+                    <th class="py-2.5 px-3.5">Frequency / Merge Rule</th>
+                  </tr>
+                </thead>
+                <tbody id="vocabTableBody" class="divide-y divide-amber-100 text-xs">
+                  <!-- Populated dynamically by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center gap-1">
+                <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-mono text-[10px] font-semibold">&lt;/w&gt;</span>
+                <span>= End-of-word marker</span>
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <span class="w-2.5 h-2.5 rounded-sm bg-red-500 inline-block"></span>
+                <span>= [UNK] fallback token</span>
+              </span>
+            </div>
+            <span id="vocabFilterCount" class="font-mono text-gray-500">Showing all tokens</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Interactive Encoding & Step-by-Step Breakdown -->
+      <div class="bg-butter rounded-2xl border border-warm-border p-5 sm:p-6 shadow-warm space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h4 class="text-base font-bold text-charcoal flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-amber-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+              Interactive Encoding &amp; Step-by-Step Breakdown
+            </h4>
+            <p class="text-xs text-gray-600 mt-0.5">Test known words, unseen morphological variants (e.g. <span class="font-mono font-semibold text-charcoal">smartest</span>), and unknown symbols (e.g. <span class="font-mono font-semibold text-red-600">@</span>) to see BPE in action.</p>
+          </div>
+
+          <!-- BOS/EOS Checkbox -->
+          <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-warm-border cursor-pointer select-none shrink-0">
+            <input id="includeSpecialTokens" type="checkbox" checked class="w-4 h-4 accent-amber-600 rounded cursor-pointer" />
+            <span class="text-xs font-semibold text-charcoal">Include <span class="font-mono text-amber-700">[BOS]</span> / <span class="font-mono text-amber-700">[EOS]</span></span>
+          </label>
+        </div>
+
+        <!-- Input Bar -->
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input
+            id="testSentenceInput"
+            type="text"
+            value="The smartest player @ lowest cost"
+            placeholder="Type any sentence or word to tokenize..."
+            class="flex-1 rounded-xl bg-white border border-warm-border px-4 py-3 font-mono text-sm text-charcoal focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
+          <button
+            id="tokenizeBtn"
+            type="button"
+            class="px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span>Tokenize &amp; Encode</span>
+          </button>
+        </div>
+
+        <!-- 3-Step Visual Pipeline Output -->
+        <div class="space-y-4">
+          <!-- Step 1: Pre-Tokenization -->
+          <div class="bg-white rounded-xl border border-warm-border p-4">
+            <div class="flex items-center justify-between mb-2.5">
+              <span class="text-xs font-bold uppercase tracking-wider text-amber-700">Step 1 — Pre-Tokenization (Lowercase + Word Boundaries)</span>
+              <span class="text-[11px] font-mono text-gray-400">Raw word chunks</span>
+            </div>
+            <div id="step1Output" class="flex flex-wrap gap-2"></div>
+          </div>
+
+          <!-- Step 2: Sub-word Splitting -->
+          <div class="bg-white rounded-xl border border-warm-border p-4">
+            <div class="flex items-center justify-between mb-2.5">
+              <span class="text-xs font-bold uppercase tracking-wider text-amber-700">Step 2 — BPE Sub-Word Splitting (Applying Learned Merges)</span>
+              <span class="text-[11px] font-mono text-gray-400">Grouped by original word</span>
+            </div>
+            <div id="step2Output" class="flex flex-wrap items-center gap-2.5"></div>
+          </div>
+
+          <!-- Step 3: ID Mapping & UNK Alert -->
+          <div class="bg-white rounded-xl border border-warm-border p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-amber-700">Step 3 — Vocabulary ID Mapping &amp; Lookup</span>
+              <span class="text-[11px] font-mono text-gray-400">Sub-word → Integer ID</span>
+            </div>
+            <div id="step3Output" class="flex flex-wrap gap-2"></div>
+
+            <!-- Dynamic [UNK] Explanation Box (Shown when UNK is triggered) -->
+            <div id="unkAlertBox" class="hidden rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-900 space-y-1">
+              <div class="flex items-center gap-2 font-bold text-red-700">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>Unknown Token Fallback ([UNK] → ID: 1) Triggered!</span>
+              </div>
+              <p id="unkAlertText" class="leading-relaxed text-red-800"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Final Encoded Array + Compression Stats -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          <!-- Final Integer Array -->
+          <div class="lg:col-span-7 bg-charcoal rounded-xl p-4 text-amber-50 flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-amber-300">Final Encoded Token ID Array</span>
+              <button
+                id="copyIdsBtn"
+                type="button"
+                class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 text-amber-200 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                <span id="copyIdsLabel">Copy IDs</span>
+              </button>
+            </div>
+            <div id="finalIdArray" class="font-mono text-sm sm:text-base text-amber-300 break-all leading-relaxed">
+              []
+            </div>
+          </div>
+
+          <!-- Compression Stats Grid -->
+          <div class="lg:col-span-5 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3">
+            <div class="bg-white rounded-xl border border-warm-border p-3 text-center">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Characters</div>
+              <div id="statChars" class="font-mono text-xl font-extrabold text-charcoal mt-0.5">0</div>
+            </div>
+            <div class="bg-white rounded-xl border border-warm-border p-3 text-center">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Words</div>
+              <div id="statWords" class="font-mono text-xl font-extrabold text-charcoal mt-0.5">0</div>
+            </div>
+            <div class="bg-white rounded-xl border border-warm-border p-3 text-center">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-amber-600">Total Tokens</div>
+              <div id="statTokens" class="font-mono text-xl font-extrabold text-amber-600 mt-0.5">0</div>
+            </div>
+            <div class="bg-white rounded-xl border border-warm-border p-3 text-center">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Chars / Token</div>
+              <div id="statRatio" class="font-mono text-xl font-extrabold text-charcoal mt-0.5">0.0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PART 2: 3D EMBEDDING SPACE VISUALIZER (SPELLING VS. MEANING)          -->
+    <!-- ===================================================================== -->
+    <section id="part2-embeddings" class="scroll-mt-20 space-y-6">
+      <!-- Section Header + Prominent Mode Toggle -->
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-3 border-b-2 border-warm-border">
+        <div>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-warm-border mb-2">
+            PART 2 OF 2
+          </span>
+          <h3 class="text-2xl font-extrabold text-charcoal tracking-tight">3D Embedding Space Visualizer (Spelling vs. Meaning)</h3>
+          <p class="text-sm text-gray-600 mt-1">Toggle between lexical spelling coordinates and semantic meaning coordinates to watch how neural embeddings reorganize language in 3D space.</p>
+        </div>
+
+        <!-- Tactile Segmented Mode Toggle -->
+        <div class="bg-butter-deep p-1.5 rounded-2xl border border-warm-border shadow-warm inline-grid grid-cols-2 relative w-full sm:w-[370px] shrink-0" role="tablist" aria-label="Embedding Mode">
+          <div id="modeSliderPill" class="mode-pill-bg absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 shadow-md"></div>
+          <button
+            id="modeSpellingBtn"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            class="relative z-10 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-colors text-white cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <span>Aa</span>
+            <span>Spelling-Based</span>
+          </button>
+          <button
+            id="modeMeaningBtn"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            class="relative z-10 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-colors text-charcoal cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <span>✦</span>
+            <span>Meaning-Based</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Controls Bar: Add Custom Words / Sentences + Chips -->
+      <div class="bg-butter rounded-2xl border border-warm-border p-4 sm:p-5 shadow-warm space-y-4">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="flex-1 flex gap-2">
+            <input
+              id="newEmbedItemInput"
+              type="text"
+              placeholder="Add a word or short sentence (e.g., 'puppy', 'truck', 'royal crown', 'orange')..."
+              class="flex-1 rounded-xl bg-white border border-warm-border px-4 py-2.5 text-sm text-charcoal focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            <button
+              id="addEmbedItemBtn"
+              type="button"
+              class="px-4 sm:px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white font-bold text-xs sm:text-sm shadow-sm transition shrink-0 cursor-pointer"
+            >
+              + Add to 3D Space
+            </button>
+          </div>
+          <button
+            id="resetEmbedDefaultsBtn"
+            type="button"
+            class="px-4 py-2.5 rounded-xl bg-white hover:bg-amber-50 border border-warm-border text-xs font-bold text-amber-800 transition shrink-0 cursor-pointer"
+          >
+            Reset Defaults
+          </button>
+        </div>
+
+        <!-- Inline feedback message for add/remove -->
+        <div id="embedFeedback" class="hidden text-xs font-medium text-amber-800 bg-amber-100/80 border border-warm-border rounded-lg px-3 py-1.5"></div>
+
+        <!-- Removable Chips of Plotted Items -->
+        <div class="flex flex-wrap items-center gap-2" id="embedChipsContainer">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Main 3D Plot + Distance & Comparison Sidebar -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+
+        <!-- 3D Plotly Scatter Plot (8 cols) -->
+        <div class="lg:col-span-8 bg-white rounded-2xl border border-warm-border shadow-warm overflow-hidden flex flex-col">
+          <div class="px-4 py-3 bg-butter/80 border-b border-warm-border flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span id="plotModeBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500 text-white">
+                Mode A: Spelling-Based (Char N-Grams)
+              </span>
+              <span class="text-xs text-gray-500 hidden sm:inline">Drag to orbit • Scroll to zoom • Click points to compare</span>
+            </div>
+            <span id="clickTargetHint" class="text-[11px] font-mono text-amber-800 bg-white px-2.5 py-0.5 rounded-full border border-warm-border">
+              Next click sets: Item A
+            </span>
+          </div>
+
+          <!-- Plotly Container -->
+          <div id="plotly3dContainer" class="w-full h-[460px] sm:h-[520px] relative"></div>
+
+          <!-- Category Legend Footer -->
+          <div class="px-4 py-2.5 bg-butter/60 border-t border-warm-border flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-semibold text-gray-600">
+            <span class="text-gray-400 uppercase tracking-wider text-[10px] font-bold">Semantic Color Key:</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#D97706]"></span>Vehicles</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#059669]"></span>Animals</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#7C3AED]"></span>Royalty</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#E11D48]"></span>Fruit / Food</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#2563EB]"></span>Tech / Other</span>
+            <span class="inline-flex items-center gap-1.5 ml-auto"><span class="w-4 h-0.5 bg-[#DC2626] inline-block"></span>Active Comparison Line</span>
+          </div>
+        </div>
+
+        <!-- Distance & Vector Math Panel (4 cols) -->
+        <div class="lg:col-span-4 bg-butter rounded-2xl border border-warm-border p-5 shadow-warm flex flex-col justify-between gap-5">
+          <div class="space-y-4">
+            <h4 class="text-base font-bold text-charcoal flex items-center gap-2">
+              <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>Pairwise Distance &amp; Math</span>
+            </h4>
+
+            <!-- Dropdown Selectors -->
+            <div class="grid grid-cols-1 gap-3">
+              <div>
+                <label for="compareSelectA" class="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Item A (Point 1)
+                </label>
+                <select id="compareSelectA" class="w-full rounded-xl bg-white border border-warm-border px-3 py-2.5 text-sm font-semibold text-charcoal focus:outline-none focus:ring-2 focus:ring-amber-500"></select>
+              </div>
+              <div>
+                <label for="compareSelectB" class="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Item B (Point 2)
+                </label>
+                <select id="compareSelectB" class="w-full rounded-xl bg-white border border-warm-border px-3 py-2.5 text-sm font-semibold text-charcoal focus:outline-none focus:ring-2 focus:ring-amber-500"></select>
+              </div>
+            </div>
+
+            <!-- Quick Preset Comparison Buttons -->
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" data-pair="car|cat" class="preset-pair-btn px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 border border-warm-border text-[11px] font-semibold text-charcoal transition cursor-pointer">
+                car vs cat
+              </button>
+              <button type="button" data-pair="car|automobile" class="preset-pair-btn px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 border border-warm-border text-[11px] font-semibold text-charcoal transition cursor-pointer">
+                car vs automobile
+              </button>
+              <button type="button" data-pair="king|queen" class="preset-pair-btn px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 border border-warm-border text-[11px] font-semibold text-charcoal transition cursor-pointer">
+                king vs queen
+              </button>
+            </div>
+
+            <!-- Cosine Similarity Card -->
+            <div class="bg-white rounded-xl border border-warm-border p-4 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Cosine Similarity</span>
+                <span id="cosineValue" class="font-mono text-lg font-extrabold text-amber-600">0.00</span>
+              </div>
+              <div class="w-full h-2.5 bg-amber-100 rounded-full overflow-hidden">
+                <div id="cosineBar" class="h-full rounded-full bg-amber-500 transition-all duration-500" style="width: 50%"></div>
+              </div>
+              <div class="flex justify-between text-[10px] font-mono text-gray-400">
+                <span>-1.0 (Opposite)</span>
+                <span>0.0 (Unrelated)</span>
+                <span>+1.0 (Identical)</span>
+              </div>
+            </div>
+
+            <!-- Euclidean Distance Card -->
+            <div class="bg-white rounded-xl border border-warm-border p-4 flex items-center justify-between">
+              <div>
+                <div class="text-xs font-bold uppercase tracking-wider text-gray-500">Euclidean Distance</div>
+                <div class="text-[11px] text-gray-400 mt-0.5">3D straight-line gap</div>
+              </div>
+              <span id="euclideanValue" class="font-mono text-xl font-extrabold text-charcoal">0.00</span>
+            </div>
+          </div>
+
+          <!-- 3D Coordinate Readout -->
+          <div class="bg-charcoal rounded-xl p-3.5 text-xs font-mono text-amber-100 space-y-2">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Active 3D Vectors (X, Y, Z)</div>
+            <div class="flex justify-between gap-2">
+              <span id="vecLabelA" class="text-amber-200 truncate">A:</span>
+              <span id="vecCoordsA" class="text-white shrink-0">(0.00, 0.00, 0.00)</span>
+            </div>
+            <div class="flex justify-between gap-2">
+              <span id="vecLabelB" class="text-amber-200 truncate">B:</span>
+              <span id="vecCoordsB" class="text-white shrink-0">(0.00, 0.00, 0.00)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Educational Insight Box -->
+      <div id="insightBox" class="bg-gradient-to-r from-butter via-butter-deep/60 to-butter rounded-2xl border-2 border-warm-border p-5 sm:p-6 shadow-warm flex flex-col sm:flex-row items-start gap-4">
+        <div class="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+        </div>
+        <div class="space-y-1.5 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <h5 id="insightTitle" class="text-sm sm:text-base font-extrabold text-charcoal">Why did these points land here?</h5>
+            <span id="insightTag" class="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-white text-amber-700 border border-warm-border">Spelling Analysis</span>
+          </div>
+          <p id="insightBody" class="text-sm text-gray-700 leading-relaxed"></p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="mt-14 border-t border-warm-border bg-butter/70 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
+      <div class="font-semibold text-charcoal">LLM Pipeline Explorer — Client-Side BPE &amp; 3D Embedding Lab</div>
+      <div>Built with HTML5, Tailwind CSS, Vanilla JS &amp; Plotly.js • Zero backend required</div>
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT ENGINE: PART 1 (REAL BPE) & PART 2 (3D EMBEDDING SPACE)        -->
+  <!-- ========================================================================= -->
+  <script>
+    'use strict';
+
+    /* =========================================================================
+       PART 1: BYTE-PAIR ENCODING (BPE) TOKENIZER ENGINE
+       ========================================================================= */
+    const DEFAULT_CORPUS =
+      'low lower lowest play playing played player smart smarter new newer newest wide wider widest fast faster fastest cold colder coldest the lowest player is playing a smart game and getting smarter every day';
+
+    const EOW = '</w>'; // End-of-word boundary marker
+
+    // Global BPE state
+    const bpeState = {
+      vocab: [],        // Array of { id, token, type, rule, freq }
+      tokenToId: {},    // Map: token string -> integer ID
+      merges: [],       // Ordered list of { a, b, merged, freq }
+      actualMerges: 0,
+    };
+
+    /**
+     * Escapes HTML special characters to safely render tokens like "</w>"
+     */
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Formats a sub-word token with a visually distinct </w> end-of-word pill
+     */
+    function formatTokenHtml(token) {
+      if (token === EOW) {
+        return `<span class="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-mono text-[11px] font-semibold">&lt;/w&gt;</span>`;
+      }
+      if (token.endsWith(EOW)) {
+        const stem = token.slice(0, -EOW.length);
+        return `<span>${escapeHtml(stem)}</span><span class="ml-0.5 px-1 py-0.2 rounded bg-amber-100/90 text-amber-800 text-[10px] font-semibold">&lt;/w&gt;</span>`;
+      }
+      return `<span>${escapeHtml(token)}</span>`;
+    }
+
+    /**
+     * Trains a genuine Byte-Pair Encoding vocabulary from raw corpus text.
+     * Special tokens: [PAD]=0, [UNK]=1, [BOS]=2, [EOS]=3
+     */
+    function trainBPE(corpusText, maxMerges) {
+      const cleaned = corpusText.toLowerCase().trim();
+      const rawWords = cleaned.length ? cleaned.split(/\s+/).filter(Boolean) : [];
+
+      // Count word frequencies
+      const wordCounts = new Map();
+      for (const w of rawWords) {
+        wordCounts.set(w, (wordCounts.get(w) || 0) + 1);
+      }
+
+      // Represent each unique word as an array of characters + '</w>'
+      // Example: "low" -> ['l', 'o', 'w', '</w>']
+      const wordSplits = new Map();
+      const baseCharFreq = new Map();
+
+      for (const [word, count] of wordCounts.entries()) {
+        const symbols = [...Array.from(word), EOW];
+        wordSplits.set(word, symbols);
+        for (const sym of symbols) {
+          baseCharFreq.set(sym, (baseCharFreq.get(sym) || 0) + count);
+        }
+      }
+
+      // Initialize vocabulary with required special tokens
+      const vocab = [
+        { id: 0, token: '[PAD]', type: 'special', rule: 'Special Token (Padding)', freq: null },
+        { id: 1, token: '[UNK]', type: 'special', rule: 'Special Token (Unknown Fallback)', freq: null },
+        { id: 2, token: '[BOS]', type: 'special', rule: 'Special Token (Begin Sequence)', freq: null },
+        { id: 3, token: '[EOS]', type: 'special', rule: 'Special Token (End Sequence)', freq: null },
+      ];
+
+      const tokenToId = {
+        '[PAD]': 0,
+        '[UNK]': 1,
+        '[BOS]': 2,
+        '[EOS]': 3,
+      };
+
+      // Add sorted base characters (putting '</w>' right after special tokens or alphabetically)
+      const baseChars = Array.from(baseCharFreq.keys()).sort((a, b) => {
+        if (a === EOW) return -1;
+        if (b === EOW) return 1;
+        return a.localeCompare(b);
+      });
+
+      for (const ch of baseChars) {
+        if (!(ch in tokenToId)) {
+          const id = vocab.length;
+          tokenToId[ch] = id;
+          vocab.push({
+            id,
+            token: ch,
+            type: 'base',
+            rule: ch === EOW ? 'Word Boundary Marker' : 'Base Character',
+            freq: baseCharFreq.get(ch),
+          });
+        }
+      }
+
+      const merges = [];
+
+      // Perform iterative BPE merges
+      for (let step = 0; step < maxMerges; step++) {
+        const pairCounts = new Map();
+
+        for (const [word, symbols] of wordSplits.entries()) {
+          const freq = wordCounts.get(word);
+          for (let i = 0; i < symbols.length - 1; i++) {
+            const pairKey = `${symbols[i]}\u0000${symbols[i + 1]}`;
+            pairCounts.set(pairKey, (pairCounts.get(pairKey) || 0) + freq);
+          }
+        }
+
+        if (pairCounts.size === 0) break;
+
+        // Find highest-frequency adjacent pair (deterministic tie-break)
+        let bestPairKey = null;
+        let bestFreq = 0;
+        for (const [key, count] of pairCounts.entries()) {
+          if (count > bestFreq || (count === bestFreq && bestPairKey && key < bestPairKey)) {
+            bestFreq = count;
+            bestPairKey = key;
+          }
+        }
+
+        // Stop if no pair repeats at least twice
+        if (!bestPairKey || bestFreq < 2) break;
+
+        const [symA, symB] = bestPairKey.split('\u0000');
+        const mergedSym = symA + symB;
+
+        merges.push({ a: symA, b: symB, merged: mergedSym, freq: bestFreq });
+
+        // Apply merge to all words in the corpus
+        for (const [word, symbols] of wordSplits.entries()) {
+          const nextSymbols = [];
+          let i = 0;
+          while (i < symbols.length) {
+            if (i < symbols.length - 1 && symbols[i] === symA && symbols[i + 1] === symB) {
+              nextSymbols.push(mergedSym);
+              i += 2;
+            } else {
+              nextSymbols.push(symbols[i]);
+              i += 1;
+            }
+          }
+          wordSplits.set(word, nextSymbols);
+        }
+
+        // Add newly merged token to vocabulary
+        if (!(mergedSym in tokenToId)) {
+          const id = vocab.length;
+          tokenToId[mergedSym] = id;
+          vocab.push({
+            id,
+            token: mergedSym,
+            type: 'merge',
+            rule: `${symA} + ${symB} → ${mergedSym}`,
+            freq: bestFreq,
+          });
+        }
+      }
+
+      bpeState.vocab = vocab;
+      bpeState.tokenToId = tokenToId;
+      bpeState.merges = merges;
+      bpeState.actualMerges = merges.length;
+
+      return bpeState;
+    }
+
+    /**
+     * Encodes a test sentence using the learned BPE merge rules in exact order.
+     */
+    function encodeWithBPE(sentence, includeSpecial) {
+      const trimmed = sentence.trim();
+      const rawWords = trimmed.length ? trimmed.split(/\s+/).filter(Boolean) : [];
+      const preTokens = rawWords.map((w) => w.toLowerCase());
+
+      const wordBreakdowns = [];
+      const flatTokens = [];
+      const unkReasons = [];
+
+      if (includeSpecial) {
+        flatTokens.push({
+          token: '[BOS]',
+          id: bpeState.tokenToId['[BOS]'],
+          isUnk: false,
+          isSpecial: true,
+          raw: '[BOS]',
+          wordIdx: -1,
+        });
+      }
+
+      preTokens.forEach((word, wordIdx) => {
+        // Start with individual characters + end-of-word marker
+        let symbols = [...Array.from(word), EOW];
+
+        // Apply learned BPE merge rules sequentially
+        for (const rule of bpeState.merges) {
+          if (symbols.length < 2) break;
+          const next = [];
+          let i = 0;
+          while (i < symbols.length) {
+            if (i < symbols.length - 1 && symbols[i] === rule.a && symbols[i + 1] === rule.b) {
+              next.push(rule.merged);
+              i += 2;
+            } else {
+              next.push(symbols[i]);
+              i += 1;
+            }
+          }
+          symbols = next;
+        }
+
+        // Map each resulting sub-word piece to its vocabulary ID (or [UNK] = 1)
+        const pieces = symbols.map((sym) => {
+          if (sym in bpeState.tokenToId) {
+            const item = {
+              token: sym,
+              id: bpeState.tokenToId[sym],
+              isUnk: false,
+              isSpecial: false,
+              raw: sym,
+              wordIdx,
+            };
+            flatTokens.push(item);
+            return item;
+          } else {
+            unkReasons.push({ raw: sym, word });
+            const item = {
+              token: '[UNK]',
+              id: 1,
+              isUnk: true,
+              isSpecial: false,
+              raw: sym,
+              wordIdx,
+            };
+            flatTokens.push(item);
+            return item;
+          }
+        });
+
+        wordBreakdowns.push({ word, pieces });
+      });
+
+      if (includeSpecial) {
+        flatTokens.push({
+          token: '[EOS]',
+          id: bpeState.tokenToId['[EOS]'],
+          isUnk: false,
+          isSpecial: true,
+          raw: '[EOS]',
+          wordIdx: -2,
+        });
+      }
+
+      return {
+        rawLength: sentence.length,
+        wordCount: rawWords.length,
+        preTokens,
+        wordBreakdowns,
+        flatTokens,
+        unkReasons,
+      };
+    }
+
+    /**
+     * Renders the searchable vocabulary table
+     */
+    function renderVocabTable(filterQuery = '') {
+      const tbody = document.getElementById('vocabTableBody');
+      const countEl = document.getElementById('vocabFilterCount');
+      const q = filterQuery.trim().toLowerCase();
+
+      const filtered = bpeState.vocab.filter((entry) => {
+        if (!q) return true;
+        return (
+          String(entry.id).includes(q) ||
+          entry.token.toLowerCase().includes(q) ||
+          entry.rule.toLowerCase().includes(q)
+        );
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="3" class="py-8 text-center text-gray-400 font-mono text-xs">
+              No vocabulary entries match "${escapeHtml(filterQuery)}".
+            </td>
+          </tr>`;
+        countEl.textContent = `0 of ${bpeState.vocab.length} tokens`;
+        return;
+      }
+
+      const rowsHtml = filtered
+        .map((entry) => {
+          const isUnk = entry.id === 1;
+          const isSpecial = entry.type === 'special';
+
+          let rowClass = 'hover:bg-amber-50/70 transition-colors';
+          let idBadgeClass = 'text-gray-600';
+          let ruleHtml = '';
+
+          if (isUnk) {
+            rowClass = 'bg-red-50/90 hover:bg-red-100/80 border-l-4 border-l-red-500';
+            idBadgeClass = 'text-red-700 font-bold';
+            ruleHtml = `<span class="inline-flex items-center gap-1.5 font-semibold text-red-700">
+              <span class="px-1.5 py-0.5 rounded bg-red-100 border border-red-200 text-[10px] uppercase">Fallback</span>
+              <span>Unknown Character / OOV</span>
+            </span>`;
+          } else if (isSpecial) {
+            rowClass = 'bg-amber-50/50 hover:bg-amber-100/50';
+            idBadgeClass = 'text-amber-700 font-bold';
+            ruleHtml = `<span class="text-amber-800 font-medium">${escapeHtml(entry.rule)}</span>`;
+          } else if (entry.type === 'base') {
+            ruleHtml = `<span class="text-gray-500">${escapeHtml(entry.rule)}</span> <span class="ml-1.5 font-mono text-[11px] text-gray-400">(freq: ${entry.freq})</span>`;
+          } else {
+            ruleHtml = `<span class="font-mono text-charcoal bg-butter px-2 py-0.5 rounded border border-warm-border">${escapeHtml(entry.rule)}</span>
+                        <span class="ml-1.5 font-mono text-[11px] text-amber-700 font-semibold">×${entry.freq}</span>`;
+          }
+
+          const tokenCell = isUnk
+            ? `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-red-600 text-white font-mono font-bold text-xs shadow-xs">[UNK]</span>`
+            : isSpecial
+            ? `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-600 text-white font-mono font-bold text-xs">${escapeHtml(entry.token)}</span>`
+            : `<span class="font-mono font-semibold text-charcoal">${formatTokenHtml(entry.token)}</span>`;
+
+          return `
+            <tr class="${rowClass}">
+              <td class="py-2 px-3.5 font-mono ${idBadgeClass}">${entry.id}</td>
+              <td class="py-2 px-3.5">${tokenCell}</td>
+              <td class="py-2 px-3.5">${ruleHtml}</td>
+            </tr>`;
+        })
+        .join('');
+
+      tbody.innerHTML = rowsHtml;
+      countEl.textContent = q
+        ? `Showing ${filtered.length} of ${bpeState.vocab.length} tokens`
+        : `Showing all ${bpeState.vocab.length} tokens`;
+    }
+
+    /**
+     * Renders the 3-step interactive tokenization breakdown & compression stats
+     */
+    function runEncodingUI() {
+      const sentence = document.getElementById('testSentenceInput').value;
+      const includeSpecial = document.getElementById('includeSpecialTokens').checked;
+      const result = encodeWithBPE(sentence, includeSpecial);
+
+      const step1El = document.getElementById('step1Output');
+      const step2El = document.getElementById('step2Output');
+      const step3El = document.getElementById('step3Output');
+      const unkBox = document.getElementById('unkAlertBox');
+      const unkText = document.getElementById('unkAlertText');
+
+      // Soft warm color palette for distinct word groups
+      const pillPalettes = [
+        'bg-amber-100 text-amber-900 border-amber-300',
+        'bg-yellow-100 text-yellow-900 border-yellow-300',
+        'bg-orange-100 text-orange-900 border-orange-300',
+        'bg-emerald-100 text-emerald-900 border-emerald-300',
+        'bg-sky-100 text-sky-900 border-sky-300',
+        'bg-purple-100 text-purple-900 border-purple-300',
+      ];
+
+      // Step 1: Pre-tokenization
+      if (result.preTokens.length === 0) {
+        step1El.innerHTML = `<span class="text-xs font-mono text-gray-400">Type a sentence above to begin...</span>`;
+        step2El.innerHTML = `<span class="text-xs font-mono text-gray-400">—</span>`;
+      } else {
+        step1El.innerHTML = result.preTokens
+          .map(
+            (w) => `
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-butter border border-warm-border font-mono text-xs font-semibold text-charcoal animate-fade-up">
+              ${escapeHtml(w)}<span class="ml-1 text-[10px] text-amber-700 font-bold">&lt;/w&gt;</span>
+            </span>`
+          )
+          .join('');
+
+        // Step 2: Sub-word splitting grouped by word
+        step2El.innerHTML = result.wordBreakdowns
+          .map((group, idx) => {
+            const palette = pillPalettes[idx % pillPalettes.length];
+            const innerPills = group.pieces
+              .map((p) => {
+                if (p.isUnk) {
+                  return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 text-white border border-red-700 font-mono text-xs font-bold shadow-xs" title="Original unknown symbol: ${escapeHtml(p.raw)}">
+                    [UNK] <span class="text-[10px] opacity-85">(${escapeHtml(p.raw)})</span>
+                  </span>`;
+                }
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg border font-mono text-xs font-semibold ${palette}">
+                  ${formatTokenHtml(p.token)}
+                </span>`;
+              })
+              .join('<span class="text-gray-300 font-mono text-xs">+</span>');
+
+            return `<div class="inline-flex items-center gap-1 p-1.5 rounded-xl bg-cream border border-warm-border/90 animate-fade-up">${innerPills}</div>`;
+          })
+          .join('');
+      }
+
+      // Step 3: ID Mapping Cards
+      step3El.innerHTML = result.flatTokens
+        .map((t) => {
+          if (t.isUnk) {
+            return `
+              <div class="inline-flex flex-col items-center px-2.5 py-1.5 rounded-xl bg-red-50 border-2 border-red-400 text-center animate-fade-up">
+                <span class="font-mono text-xs font-bold text-red-700">[UNK]</span>
+                <span class="text-[10px] font-mono text-red-500">raw: "${escapeHtml(t.raw)}"</span>
+                <span class="mt-0.5 px-1.5 py-0.2 rounded bg-red-600 text-white font-mono text-[11px] font-bold">ID: 1</span>
+              </div>`;
+          }
+          if (t.isSpecial) {
+            return `
+              <div class="inline-flex flex-col items-center px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-center animate-fade-up">
+                <span class="font-mono text-xs font-bold text-amber-800">${escapeHtml(t.token)}</span>
+                <span class="text-[10px] text-amber-600">special</span>
+                <span class="mt-0.5 px-1.5 py-0.2 rounded bg-amber-600 text-white font-mono text-[11px] font-bold">ID: ${t.id}</span>
+              </div>`;
+          }
+          return `
+            <div class="inline-flex flex-col items-center px-2.5 py-1.5 rounded-xl bg-butter/80 border border-warm-border text-center animate-fade-up">
+              <span class="font-mono text-xs font-semibold text-charcoal">${formatTokenHtml(t.token)}</span>
+              <span class="text-[10px] text-gray-400">↓</span>
+              <span class="px-1.5 py-0.2 rounded bg-white border border-warm-border font-mono text-[11px] font-bold text-amber-700">ID: ${t.id}</span>
+            </div>`;
+        })
+        .join('');
+
+      // Show or hide UNK explanation callout
+      if (result.unkReasons.length > 0) {
+        const uniqueUnks = [...new Set(result.unkReasons.map((u) => `"${u.raw}" (in "${u.word}")`))];
+        unkText.innerHTML = `The character/symbol <strong>${escapeHtml(uniqueUnks.join(', '))}</strong> never appeared in your training corpus, so it has no entry in the vocabulary table. Rather than crashing, the tokenizer maps it to <span class="font-mono font-bold bg-red-100 px-1 rounded">[UNK] (ID: 1)</span>.`;
+        unkBox.classList.remove('hidden');
+      } else {
+        unkBox.classList.add('hidden');
+      }
+
+      // Final Integer Array & Stats
+      const ids = result.flatTokens.map((t) => t.id);
+      document.getElementById('finalIdArray').textContent = `[${ids.join(', ')}]`;
+      document.getElementById('statChars').textContent = result.rawLength;
+      document.getElementById('statWords').textContent = result.wordCount;
+      document.getElementById('statTokens').textContent = ids.length;
+
+      const contentTokens = result.flatTokens.filter((t) => !t.isSpecial).length;
+      const ratio = contentTokens > 0 ? (result.rawLength / contentTokens).toFixed(2) : '0.00';
+      document.getElementById('statRatio').textContent = ratio;
+    }
+
+    /**
+     * Rebuilds the BPE vocabulary from UI inputs and refreshes table + encoder
+     */
+    function rebuildBPEFromUI() {
+      const corpus = document.getElementById('corpusInput').value;
+      const requestedMerges = parseInt(document.getElementById('mergeStepsSlider').value, 10);
+      trainBPE(corpus, requestedMerges);
+
+      document.getElementById('vocabSummaryBadge').innerHTML = `
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>Vocab: ${bpeState.vocab.length} tokens (${bpeState.actualMerges} merges)</span>`;
+
+      const noteEl = document.getElementById('bpeTrainNote');
+      if (bpeState.actualMerges < requestedMerges) {
+        noteEl.innerHTML = `Trained <strong class="text-charcoal">${bpeState.actualMerges} merges</strong> (stopped early because no remaining symbol pair repeated ≥ 2 times). Total vocabulary size: <strong class="font-mono text-amber-700">${bpeState.vocab.length}</strong>.`;
+      } else {
+        noteEl.innerHTML = `Successfully learned <strong class="text-charcoal">${bpeState.actualMerges} BPE merge rules</strong> from your corpus. Total vocabulary size: <strong class="font-mono text-amber-700">${bpeState.vocab.length}</strong>.`;
+      }
+
+      renderVocabTable(document.getElementById('vocabSearchInput').value);
+      runEncodingUI();
+    }
+
+
+    /* =========================================================================
+       PART 2: 3D EMBEDDING SPACE VISUALIZER (SPELLING VS. MEANING)
+       ========================================================================= */
+
+    const DEFAULT_EMBED_ITEMS = [
+      'car',
+      'cat',
+      'cart',
+      'automobile',
+      'vehicle',
+      'driving a car',
+      'king',
+      'queen',
+      'monarch',
+      'apple',
+      'banana',
+    ];
+
+    // Semantic Category Styling (Consistent colors across both modes!)
+    const CATEGORY_STYLES = {
+      Vehicles: { color: '#D97706', label: 'Vehicles' },
+      Animals:  { color: '#059669', label: 'Animals' },
+      Royalty:  { color: '#7C3AED', label: 'Royalty' },
+      Fruit:    { color: '#E11D48', label: 'Fruit / Food' },
+      Tech:     { color: '#2563EB', label: 'Tech / Other' },
+    };
+
+    // 10-Dimensional Semantic Concept Lexicon:
+    // [Vehicles, Animals, Royalty, Fruit/Food, Tech/AI, Nature, Action/Motion, Human/Social, Power/Size, Emotion]
+    const SEMANTIC_LEXICON = {
+      // Vehicles / Transport
+      car:        [0.98, 0.00, 0.00, 0.00, 0.15, 0.00, 0.45, 0.10, 0.45, 0.00],
+      automobile: [0.99, 0.00, 0.00, 0.00, 0.18, 0.00, 0.42, 0.10, 0.48, 0.00],
+      vehicle:    [0.96, 0.00, 0.00, 0.00, 0.20, 0.00, 0.48, 0.08, 0.52, 0.00],
+      driving:    [0.85, 0.00, 0.00, 0.00, 0.10, 0.05, 0.72, 0.20, 0.35, 0.00],
+      drive:      [0.82, 0.00, 0.00, 0.00, 0.10, 0.05, 0.75, 0.20, 0.30, 0.00],
+      truck:      [0.95, 0.00, 0.00, 0.00, 0.15, 0.00, 0.40, 0.05, 0.75, 0.00],
+      bus:        [0.92, 0.00, 0.00, 0.00, 0.12, 0.00, 0.42, 0.30, 0.70, 0.00],
+      bike:       [0.84, 0.00, 0.00, 0.00, 0.10, 0.15, 0.65, 0.15, 0.15, 0.05],
+      bicycle:    [0.85, 0.00, 0.00, 0.00, 0.08, 0.15, 0.65, 0.15, 0.15, 0.05],
+      train:      [0.93, 0.00, 0.00, 0.00, 0.25, 0.00, 0.55, 0.20, 0.85, 0.00],
+      plane:      [0.90, 0.00, 0.00, 0.00, 0.35, 0.10, 0.70, 0.15, 0.88, 0.00],
+      road:       [0.78, 0.00, 0.00, 0.00, 0.05, 0.20, 0.45, 0.10, 0.40, 0.00],
+      cart:       [0.62, 0.00, 0.00, 0.18, 0.05, 0.00, 0.35, 0.15, 0.18, 0.00],
+      engine:     [0.88, 0.00, 0.00, 0.00, 0.45, 0.00, 0.40, 0.00, 0.55, 0.00],
+
+      // Animals / Pets
+      cat:        [0.00, 0.98, 0.00, 0.00, 0.00, 0.32, 0.30, 0.25, 0.12, 0.28],
+      kitten:     [0.00, 0.97, 0.00, 0.00, 0.00, 0.30, 0.32, 0.28, 0.05, 0.42],
+      dog:        [0.00, 0.97, 0.00, 0.00, 0.00, 0.35, 0.40, 0.38, 0.22, 0.40],
+      puppy:      [0.00, 0.96, 0.00, 0.00, 0.00, 0.32, 0.42, 0.38, 0.10, 0.48],
+      pet:        [0.00, 0.94, 0.00, 0.00, 0.00, 0.25, 0.25, 0.45, 0.15, 0.42],
+      animal:     [0.00, 0.99, 0.00, 0.00, 0.00, 0.55, 0.35, 0.10, 0.40, 0.10],
+      lion:       [0.00, 0.94, 0.25, 0.00, 0.00, 0.65, 0.45, 0.00, 0.78, 0.05],
+      tiger:      [0.00, 0.95, 0.10, 0.00, 0.00, 0.68, 0.50, 0.00, 0.75, 0.05],
+      bird:       [0.00, 0.92, 0.00, 0.00, 0.00, 0.62, 0.60, 0.05, 0.08, 0.18],
+      horse:      [0.25, 0.90, 0.10, 0.00, 0.00, 0.50, 0.65, 0.15, 0.62, 0.12],
+      wolf:       [0.00, 0.94, 0.00, 0.00, 0.00, 0.70, 0.50, 0.05, 0.52, 0.05],
+      fish:       [0.00, 0.91, 0.00, 0.15, 0.00, 0.65, 0.40, 0.00, 0.12, 0.05],
+
+      // Royalty / Leadership
+      king:       [0.00, 0.00, 0.99, 0.00, 0.00, 0.00, 0.05, 0.72, 0.85, 0.10],
+      queen:      [0.00, 0.00, 0.98, 0.00, 0.00, 0.00, 0.05, 0.75, 0.82, 0.15],
+      monarch:    [0.00, 0.00, 0.99, 0.00, 0.00, 0.00, 0.05, 0.68, 0.88, 0.08],
+      prince:     [0.00, 0.00, 0.93, 0.00, 0.00, 0.00, 0.12, 0.74, 0.65, 0.18],
+      princess:   [0.00, 0.00, 0.92, 0.00, 0.00, 0.00, 0.12, 0.76, 0.60, 0.22],
+      royal:      [0.00, 0.00, 0.96, 0.00, 0.00, 0.00, 0.05, 0.60, 0.80, 0.12],
+      crown:      [0.00, 0.00, 0.92, 0.00, 0.00, 0.00, 0.00, 0.40, 0.78, 0.10],
+      throne:     [0.00, 0.00, 0.93, 0.00, 0.00, 0.00, 0.00, 0.35, 0.82, 0.05],
+      emperor:    [0.00, 0.00, 0.97, 0.00, 0.00, 0.00, 0.05, 0.65, 0.94, 0.05],
+      ruler:      [0.00, 0.00, 0.91, 0.00, 0.00, 0.00, 0.05, 0.62, 0.85, 0.05],
+      castle:     [0.00, 0.00, 0.85, 0.00, 0.00, 0.15, 0.00, 0.30, 0.80, 0.08],
+
+      // Fruit / Food
+      apple:      [0.00, 0.00, 0.00, 0.99, 0.08, 0.45, 0.00, 0.05, 0.10, 0.22],
+      banana:     [0.00, 0.00, 0.00, 0.98, 0.00, 0.48, 0.00, 0.05, 0.10, 0.25],
+      orange:     [0.00, 0.00, 0.00, 0.97, 0.00, 0.46, 0.00, 0.05, 0.10, 0.24],
+      fruit:      [0.00, 0.00, 0.00, 0.99, 0.00, 0.52, 0.00, 0.05, 0.10, 0.20],
+      mango:      [0.00, 0.00, 0.00, 0.97, 0.00, 0.50, 0.00, 0.05, 0.12, 0.28],
+      grape:      [0.00, 0.00, 0.00, 0.96, 0.00, 0.46, 0.00, 0.05, 0.06, 0.22],
+      berry:      [0.00, 0.00, 0.00, 0.95, 0.00, 0.52, 0.00, 0.05, 0.05, 0.24],
+      peach:      [0.00, 0.00, 0.00, 0.96, 0.00, 0.48, 0.00, 0.05, 0.10, 0.26],
+      food:       [0.00, 0.00, 0.00, 0.95, 0.00, 0.20, 0.05, 0.25, 0.15, 0.30],
+      pizza:      [0.00, 0.00, 0.00, 0.90, 0.00, 0.05, 0.00, 0.30, 0.20, 0.42],
+      bread:      [0.00, 0.00, 0.00, 0.91, 0.00, 0.15, 0.00, 0.20, 0.15, 0.22],
+      cake:       [0.00, 0.00, 0.00, 0.88, 0.00, 0.05, 0.00, 0.35, 0.18, 0.55],
+      eat:        [0.00, 0.05, 0.00, 0.84, 0.00, 0.10, 0.45, 0.30, 0.10, 0.25],
+
+      // Tech / AI / Nature / Emotion
+      computer:   [0.05, 0.00, 0.00, 0.00, 0.98, 0.00, 0.15, 0.20, 0.35, 0.05],
+      ai:         [0.05, 0.00, 0.00, 0.00, 0.99, 0.00, 0.25, 0.25, 0.45, 0.05],
+      robot:      [0.20, 0.00, 0.00, 0.00, 0.96, 0.00, 0.45, 0.25, 0.48, 0.05],
+      code:       [0.00, 0.00, 0.00, 0.00, 0.95, 0.00, 0.20, 0.20, 0.25, 0.05],
+      llm:        [0.00, 0.00, 0.00, 0.00, 0.99, 0.00, 0.20, 0.30, 0.45, 0.05],
+      phone:      [0.05, 0.00, 0.00, 0.00, 0.92, 0.00, 0.15, 0.45, 0.18, 0.12],
+      happy:      [0.00, 0.05, 0.00, 0.05, 0.00, 0.15, 0.15, 0.55, 0.10, 0.96],
+      love:       [0.00, 0.08, 0.05, 0.05, 0.00, 0.15, 0.10, 0.72, 0.15, 0.98],
+      tree:       [0.00, 0.10, 0.00, 0.35, 0.00, 0.96, 0.00, 0.00, 0.55, 0.15],
+      forest:     [0.00, 0.25, 0.00, 0.20, 0.00, 0.98, 0.05, 0.00, 0.75, 0.15],
+    };
+
+    const STOP_WORDS = new Set(['a', 'an', 'the', 'is', 'are', 'in', 'on', 'at', 'of', 'to', 'and', 'with', 'for', 'my']);
+
+    // Embedding state
+    const embedState = {
+      items: [...DEFAULT_EMBED_ITEMS],
+      mode: 'spelling', // 'spelling' | 'meaning'
+      coordsByMode: { spelling: [], meaning: [] },
+      currentDisplayedCoords: [], // Used for smooth animation interpolation
+      selectedA: 'car',
+      selectedB: 'cat',
+      nextClickSlot: 'A', // Alternates 'A' -> 'B' on 3D point click
+      animFrameId: null,
+      plotInitialized: false,
+    };
+
+    /**
+     * Deterministic hash for unseen words to produce stable fallback vectors
+     */
+    function hashString(str) {
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    /**
+     * Looks up a word in the semantic lexicon (with simple plural/stem normalization)
+     */
+    function lookupSemanticWord(word) {
+      const w = word.toLowerCase().replace(/[^a-z]/g, '');
+      if (!w) return null;
+      if (SEMANTIC_LEXICON[w]) return SEMANTIC_LEXICON[w];
+      if (w.endsWith('s') && SEMANTIC_LEXICON[w.slice(0, -1)]) return SEMANTIC_LEXICON[w.slice(0, -1)];
+      if (w.endsWith('es') && SEMANTIC_LEXICON[w.slice(0, -2)]) return SEMANTIC_LEXICON[w.slice(0, -2)];
+      if (w.endsWith('ing') && SEMANTIC_LEXICON[w.slice(0, -3)]) return SEMANTIC_LEXICON[w.slice(0, -3)];
+      return null;
+    }
+
+    /**
+     * Computes a 10D semantic vector for a word or short phrase
+     */
+    function getSemanticVector10D(text) {
+      const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+      const matched = [];
+      for (const w of words) {
+        if (STOP_WORDS.has(w) && words.length > 1) continue;
+        const vec = lookupSemanticWord(w);
+        if (vec) matched.push(vec);
+      }
+
+      if (matched.length > 0) {
+        const avg = new Array(10).fill(0);
+        for (const v of matched) {
+          for (let i = 0; i < 10; i++) avg[i] += v[i];
+        }
+        return avg.map((x) => x / matched.length);
+      }
+
+      // Deterministic fallback vector for completely unseen custom words
+      const h = hashString(text.toLowerCase());
+      const vec = new Array(10).fill(0);
+      vec[4] = 0.55 + ((h & 0xff) / 255) * 0.35; // Tech / Other region
+      vec[5] = (((h >> 8) & 0xff) / 255) * 0.45;
+      vec[7] = (((h >> 16) & 0xff) / 255) * 0.45;
+      vec[9] = (((h >> 24) & 0xff) / 255) * 0.45;
+      return vec;
+    }
+
+    /**
+     * Classifies an item into one of the 5 visual color categories based on its semantic vector
+     */
+    function classifyCategory(text) {
+      const v = getSemanticVector10D(text);
+      const scores = [
+        { cat: 'Vehicles', val: v[0] },
+        { cat: 'Animals',  val: v[1] },
+        { cat: 'Royalty',  val: v[2] },
+        { cat: 'Fruit',    val: v[3] },
+        { cat: 'Tech',     val: Math.max(v[4], v[5], v[9], 0.25) },
+      ];
+      scores.sort((a, b) => b.val - a.val);
+      return scores[0].cat;
+    }
+
+    /**
+     * Projects 10D semantic vectors cleanly into 3D space so major semantic clusters
+     * occupy distinct, intuitive octants (Vehicles, Animals, Royalty, Fruit, Tech).
+     */
+    function computeMeaningCoords3D(items) {
+      // Fixed orthogonal-style 3D basis vectors for the 10 semantic dimensions
+      const basisX = [ 1.15, -1.15, -0.95,  0.95,  0.05,  0.10,  0.25, -0.20, -0.15,  0.10];
+      const basisY = [ 0.95,  0.90, -1.05, -0.95,  0.85,  0.20,  0.20, -0.25, -0.15, -0.10];
+      const basisZ = [ 0.85, -0.95,  1.05, -0.85,  0.95, -0.35,  0.22,  0.18,  0.25, -0.25];
+
+      return items.map((text) => {
+        const v = getSemanticVector10D(text);
+        let x = 0, y = 0, z = 0;
+        for (let i = 0; i < 10; i++) {
+          x += v[i] * basisX[i];
+          y += v[i] * basisY[i];
+          z += v[i] * basisZ[i];
+        }
+        // Add tiny deterministic jitter (0.04) so near-synonyms don't overlap identically on the same pixel
+        const h = hashString(text.toLowerCase());
+        x += (((h & 0xff) / 255) - 0.5) * 0.08;
+        y += ((((h >> 8) & 0xff) / 255) - 0.5) * 0.08;
+        z += ((((h >> 16) & 0xff) / 255) - 0.5) * 0.08;
+
+        return [Number(x.toFixed(4)), Number(y.toFixed(4)), Number(z.toFixed(4))];
+      });
+    }
+
+    /**
+     * Builds a normalized character N-gram feature map for Spelling-Based embeddings
+     */
+    function buildCharNgramMap(text) {
+      const clean = text.toLowerCase().trim();
+      const padded = `^${clean}$`;
+      const vec = new Map();
+
+      const add = (key, weight) => vec.set(key, (vec.get(key) || 0) + weight);
+
+      // Character unigrams
+      for (let i = 0; i < clean.length; i++) {
+        if (clean[i] !== ' ') add(`1:${clean[i]}`, 1.0);
+      }
+      // Character bigrams (including start/end boundaries)
+      for (let i = 0; i < padded.length - 1; i++) {
+        add(`2:${padded.slice(i, i + 2)}`, 1.8);
+      }
+      // Character trigrams
+      for (let i = 0; i < padded.length - 2; i++) {
+        add(`3:${padded.slice(i, i + 3)}`, 2.3);
+      }
+      // Explicit prefix emphasis (first 2-3 chars)
+      if (clean.length >= 2) add(`pre2:${clean.slice(0, 2)}`, 2.0);
+      if (clean.length >= 3) add(`pre3:${clean.slice(0, 3)}`, 1.6);
+
+      // Normalize to unit L2 norm
+      let normSq = 0;
+      for (const val of vec.values()) normSq += val * val;
+      const norm = Math.sqrt(normSq) || 1;
+      for (const [k, val] of vec.entries()) vec.set(k, val / norm);
+      return vec;
+    }
+
+    /**
+     * Dot product between two sparse feature maps
+     */
+    function sparseDot(mapA, mapB) {
+      let sum = 0;
+      for (const [k, v] of mapA.entries()) {
+        if (mapB.has(k)) sum += v * mapB.get(k);
+      }
+      return sum;
+    }
+
+    /**
+     * Jacobi Eigenvalue Algorithm for real symmetric n×n matrices (exact & fast for n <= 60).
+     * Used for Classical Multidimensional Scaling (MDS) to project lexical similarities into 3D.
+     */
+    function jacobiEigenSymmetric(matrix) {
+      const n = matrix.length;
+      const A = matrix.map((row) => [...row]);
+      const V = Array.from({ length: n }, (_, i) =>
+        Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))
+      );
+
+      const maxSweeps = 50;
+      for (let sweep = 0; sweep < maxSweeps; sweep++) {
+        let maxOff = 0;
+        let p = 0, q = 1;
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const val = Math.abs(A[i][j]);
+            if (val > maxOff) {
+              maxOff = val;
+              p = i;
+              q = j;
+            }
+          }
+        }
+        if (maxOff < 1e-10) break;
+
+        const diff = A[q][q] - A[p][p];
+        const t =
+          Math.abs(A[p][q]) < Math.abs(diff) * 1e-18
+            ? A[p][q] / diff
+            : (() => {
+                const phi = diff / (2 * A[p][q]);
+                return 1 / (Math.abs(phi) + Math.sqrt(phi * phi + 1)) * (phi < 0 ? -1 : 1);
+              })();
+        const c = 1 / Math.sqrt(1 + t * t);
+        const s = t * c;
+        const tau = s / (1 + c);
+        const h = t * A[p][q];
+
+        A[p][p] -= h;
+        A[q][q] += h;
+        A[p][q] = 0;
+        A[q][p] = 0;
+
+        for (let i = 0; i < n; i++) {
+          if (i !== p && i !== q) {
+            const aip = A[i][p];
+            const aiq = A[i][q];
+            A[i][p] = aip - s * (aiq + tau * aip);
+            A[p][i] = A[i][p];
+            A[i][q] = aiq + s * (aip - tau * aiq);
+            A[q][i] = A[i][q];
+          }
+          const vip = V[i][p];
+          const viq = V[i][q];
+          V[i][p] = vip - s * (viq + tau * vip);
+          V[i][q] = viq + s * (vip - tau * viq);
+        }
+      }
+
+      const eigenpairs = [];
+      for (let i = 0; i < n; i++) {
+        eigenpairs.push({
+          value: A[i][i],
+          vector: V.map((row) => row[i]),
+        });
+      }
+      eigenpairs.sort((a, b) => b.value - a.value);
+      return eigenpairs;
+    }
+
+    /**
+     * Computes 3D Spelling-Based coordinates via Character N-gram similarity + Classical MDS
+     */
+    function computeSpellingCoords3D(items) {
+      const n = items.length;
+      if (n === 0) return [];
+      if (n === 1) return [[0, 0, 0]];
+
+      const maps = items.map(buildCharNgramMap);
+
+      // Pairwise squared distance matrix on unit hypersphere: D^2_ij = 2 * (1 - cosSim_ij)
+      const D2 = Array.from({ length: n }, () => new Array(n).fill(0));
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const sim = Math.min(1, Math.max(0, sparseDot(maps[i], maps[j])));
+          const d2 = 2 * (1 - sim);
+          D2[i][j] = d2;
+          D2[j][i] = d2;
+        }
+      }
+
+      // Double-centering: B = -0.5 * J * D2 * J
+      const rowMeans = D2.map((row) => row.reduce((a, b) => a + b, 0) / n);
+      const grandMean = rowMeans.reduce((a, b) => a + b, 0) / n;
+      const B = Array.from({ length: n }, (_, i) =>
+        Array.from({ length: n }, (_, j) => -0.5 * (D2[i][j] - rowMeans[i] - rowMeans[j] + grandMean))
+      );
+
+      const eigenpairs = jacobiEigenSymmetric(B);
+
+      // Extract top 3 dimensions and stabilize sign deterministically
+      const coords = Array.from({ length: n }, () => [0, 0, 0]);
+      for (let dim = 0; dim < 3; dim++) {
+        if (dim < eigenpairs.length && eigenpairs[dim].value > 1e-8) {
+          const scale = Math.sqrt(eigenpairs[dim].value) * 1.45;
+          const vec = eigenpairs[dim].vector;
+          // Anchor sign so first item is positive (prevents arbitrary axis flips)
+          const sign = vec[0] < 0 ? -1 : 1;
+          for (let i = 0; i < n; i++) {
+            coords[i][dim] = Number((vec[i] * scale * sign).toFixed(4));
+          }
+        }
+      }
+      return coords;
+    }
+
+    /**
+     * Vector math helpers for 3D Cosine Similarity & Euclidean Distance
+     */
+    function cosineSimilarity3D(a, b) {
+      const dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      const magA = Math.hypot(a[0], a[1], a[2]);
+      const magB = Math.hypot(b[0], b[1], b[2]);
+      if (magA === 0 || magB === 0) return 0;
+      return Math.max(-1, Math.min(1, dot / (magA * magB)));
+    }
+
+    function euclideanDistance3D(a, b) {
+      return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    }
+
+    /**
+     * Computes actual character overlap percentage (Dice/Jaccard style) & shared chars for the Insight Box
+     */
+    function computeCharOverlapStats(wordA, wordB) {
+      const a = wordA.toLowerCase().replace(/\s+/g, '');
+      const b = wordB.toLowerCase().replace(/\s+/g, '');
+      const setA = new Set(a.split(''));
+      const setB = new Set(b.split(''));
+      const shared = [...setA].filter((ch) => setB.has(ch));
+      const unionSize = new Set([...setA, ...setB]).size || 1;
+      const pct = Math.round((shared.length / unionSize) * 100);
+      return { pct, shared };
+    }
+
+    /**
+     * Recomputes both Spelling and Meaning 3D coordinates whenever the item list changes
+     */
+    function recomputeAllEmbeddings() {
+      embedState.coordsByMode.spelling = computeSpellingCoords3D(embedState.items);
+      embedState.coordsByMode.meaning = computeMeaningCoords3D(embedState.items);
+
+      // Ensure selectedA & selectedB still exist
+      if (!embedState.items.includes(embedState.selectedA)) {
+        embedState.selectedA = embedState.items[0] || '';
+      }
+      if (!embedState.items.includes(embedState.selectedB)) {
+        embedState.selectedB = embedState.items[1] || embedState.items[0] || '';
+      }
+    }
+
+    /**
+     * Renders the removable chips list and comparison dropdowns
+     */
+    function renderEmbedControls() {
+      const chipsEl = document.getElementById('embedChipsContainer');
+      chipsEl.innerHTML = embedState.items
+        .map((item) => {
+          const cat = classifyCategory(item);
+          const color = CATEGORY_STYLES[cat].color;
+          const isSelected = item === embedState.selectedA || item === embedState.selectedB;
+          const ringClass = isSelected ? 'ring-2 ring-amber-500 border-amber-500 bg-amber-50' : 'border-warm-border bg-white';
+          return `
+            <span class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full border text-xs font-semibold text-charcoal transition ${ringClass}">
+              <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${color}"></span>
+              <span>${escapeHtml(item)}</span>
+              <button
+                type="button"
+                data-remove-item="${escapeHtml(item)}"
+                class="w-4 h-4 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-600 flex items-center justify-center transition cursor-pointer"
+                title="Remove ${escapeHtml(item)}"
+                aria-label="Remove ${escapeHtml(item)}"
+              >×</button>
+            </span>`;
+        })
+        .join('');
+
+      // Populate dropdowns
+      const selectA = document.getElementById('compareSelectA');
+      const selectB = document.getElementById('compareSelectB');
+      const optionsHtml = embedState.items
+        .map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)
+        .join('');
+
+      selectA.innerHTML = optionsHtml;
+      selectB.innerHTML = optionsHtml;
+      selectA.value = embedState.selectedA;
+      selectB.value = embedState.selectedB;
+    }
+
+    /**
+     * Builds Plotly traces for a given coordinate array
+     */
+    function buildPlotlyTraces(coords) {
+      const items = embedState.items;
+      const colors = items.map((item) => CATEGORY_STYLES[classifyCategory(item)].color);
+      const categories = items.map((item) => CATEGORY_STYLES[classifyCategory(item)].label);
+
+      const sizes = items.map((item) =>
+        item === embedState.selectedA || item === embedState.selectedB ? 12 : 8.5
+      );
+
+      const hoverTexts = items.map((item, idx) => {
+        const [x, y, z] = coords[idx];
+        return `<b>${escapeHtml(item)}</b><br>Category: ${categories[idx]}<br>X: ${x.toFixed(2)} | Y: ${y.toFixed(2)} | Z: ${z.toFixed(2)}`;
+      });
+
+      const scatterTrace = {
+        type: 'scatter3d',
+        mode: 'markers+text',
+        name: 'Embeddings',
+        x: coords.map((c) => c[0]),
+        y: coords.map((c) => c[1]),
+        z: coords.map((c) => c[2]),
+        text: items,
+        textposition: 'top center',
+        textfont: {
+          family: 'Plus Jakarta Sans, sans-serif',
+          size: 12,
+          color: '#1F2937',
+        },
+        hovertext: hoverTexts,
+        hoverinfo: 'text',
+        marker: {
+          size: sizes,
+          color: colors,
+          opacity: 0.94,
+          line: {
+            color: '#FFFDF5',
+            width: 1.5,
+          },
+        },
+      };
+
+      // Connecting line between Item A and Item B
+      const idxA = items.indexOf(embedState.selectedA);
+      const idxB = items.indexOf(embedState.selectedB);
+      const lineX = idxA >= 0 && idxB >= 0 ? [coords[idxA][0], coords[idxB][0]] : [];
+      const lineY = idxA >= 0 && idxB >= 0 ? [coords[idxA][1], coords[idxB][1]] : [];
+      const lineZ = idxA >= 0 && idxB >= 0 ? [coords[idxA][2], coords[idxB][2]] : [];
+
+      const lineTrace = {
+        type: 'scatter3d',
+        mode: 'lines',
+        name: 'Comparison Vector',
+        x: lineX,
+        y: lineY,
+        z: lineZ,
+        hoverinfo: 'skip',
+        line: {
+          color: '#DC2626',
+          width: 4,
+          dash: 'solid',
+        },
+      };
+
+      return [scatterTrace, lineTrace];
+    }
+
+    /**
+     * Initializes or updates the Plotly 3D Scatter Plot
+     */
+    function renderPlotly3D(animateTransition = false) {
+      const container = document.getElementById('plotly3dContainer');
+      const targetCoords = embedState.coordsByMode[embedState.mode];
+
+      const layout = {
+        margin: { l: 0, r: 0, t: 0, b: 0 },
+        paper_bgcolor: '#FFFFFF',
+        showlegend: false,
+        scene: {
+          bgcolor: '#FFFDF5',
+          xaxis: {
+            title: { text: 'Dim X', font: { family: 'JetBrains Mono', size: 11, color: '#92400E' } },
+            gridcolor: '#FDE68A',
+            zerolinecolor: '#F59E0B',
+            tickfont: { family: 'JetBrains Mono', size: 10, color: '#6B7280' },
+            range: [-1.8, 1.8],
+          },
+          yaxis: {
+            title: { text: 'Dim Y', font: { family: 'JetBrains Mono', size: 11, color: '#92400E' } },
+            gridcolor: '#FDE68A',
+            zerolinecolor: '#F59E0B',
+            tickfont: { family: 'JetBrains Mono', size: 10, color: '#6B7280' },
+            range: [-1.8, 1.8],
+          },
+          zaxis: {
+            title: { text: 'Dim Z', font: { family: 'JetBrains Mono', size: 11, color: '#92400E' } },
+            gridcolor: '#FDE68A',
+            zerolinecolor: '#F59E0B',
+            tickfont: { family: 'JetBrains Mono', size: 10, color: '#6B7280' },
+            range: [-1.8, 1.8],
+          },
+          camera: {
+            eye: { x: 1.55, y: 1.45, z: 1.15 },
+          },
+        },
+      };
+
+      const config = {
+        responsive: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['toImage', 'sendDataToCloud', 'resetCameraLastSave3d'],
+      };
+
+      // Smoothly animate between old and new coordinates when toggling modes!
+      if (
+        animateTransition &&
+        embedState.plotInitialized &&
+        embedState.currentDisplayedCoords.length === targetCoords.length
+      ) {
+        if (embedState.animFrameId) cancelAnimationFrame(embedState.animFrameId);
+
+        const startCoords = embedState.currentDisplayedCoords.map((c) => [...c]);
+        const duration = 620; // ms
+        const startTime = performance.now();
+        const idxA = embedState.items.indexOf(embedState.selectedA);
+        const idxB = embedState.items.indexOf(embedState.selectedB);
+
+        const step = (now) => {
+          const rawT = Math.min(1, (now - startTime) / duration);
+          // Smooth cubic ease-in-out
+          const t = rawT < 0.5 ? 4 * rawT * rawT * rawT : 1 - Math.pow(-2 * rawT + 2, 3) / 2;
+
+          const interp = startCoords.map((sc, i) => [
+            sc[0] + (targetCoords[i][0] - sc[0]) * t,
+            sc[1] + (targetCoords[i][1] - sc[1]) * t,
+            sc[2] + (targetCoords[i][2] - sc[2]) * t,
+          ]);
+
+          embedState.currentDisplayedCoords = interp;
+
+          const lineX = idxA >= 0 && idxB >= 0 ? [interp[idxA][0], interp[idxB][0]] : [];
+          const lineY = idxA >= 0 && idxB >= 0 ? [interp[idxA][1], interp[idxB][1]] : [];
+          const lineZ = idxA >= 0 && idxB >= 0 ? [interp[idxA][2], interp[idxB][2]] : [];
+
+          Plotly.restyle(
+            container,
+            {
+              x: [interp.map((c) => c[0]), lineX],
+              y: [interp.map((c) => c[1]), lineY],
+              z: [interp.map((c) => c[2]), lineZ],
+            },
+            [0, 1]
+          );
+
+          if (rawT < 1) {
+            embedState.animFrameId = requestAnimationFrame(step);
+          } else {
+            // Update hover tooltips cleanly once animation settles
+            const traces = buildPlotlyTraces(targetCoords);
+            Plotly.restyle(container, { hovertext: [traces[0].hovertext] }, [0]);
+            embedState.animFrameId = null;
+          }
+        };
+
+        embedState.animFrameId = requestAnimationFrame(step);
+        return;
+      }
+
+      // Fresh render or item count changed (preserve existing camera if already initialized)
+      if (embedState.plotInitialized && container._fullLayout && container._fullLayout.scene) {
+        const existingCam = container._fullLayout.scene.camera;
+        if (existingCam) layout.scene.camera = existingCam;
+      }
+
+      embedState.currentDisplayedCoords = targetCoords.map((c) => [...c]);
+      const traces = buildPlotlyTraces(targetCoords);
+      Plotly.react(container, traces, layout, config);
+
+      if (!embedState.plotInitialized) {
+        embedState.plotInitialized = true;
+        // Attach click handler to assign Item A / Item B directly from the 3D graph
+        container.on('plotly_click', (eventData) => {
+          if (!eventData || !eventData.points || !eventData.points.length) return;
+          const pt = eventData.points[0];
+          if (pt.curveNumber !== 0) return; // Only respond to scatter points
+          const clickedWord = embedState.items[pt.pointNumber];
+          if (!clickedWord) return;
+
+          if (embedState.nextClickSlot === 'A') {
+            embedState.selectedA = clickedWord;
+            embedState.nextClickSlot = 'B';
+          } else {
+            embedState.selectedB = clickedWord;
+            embedState.nextClickSlot = 'A';
+          }
+          document.getElementById('clickTargetHint').textContent = `Next click sets: Item ${embedState.nextClickSlot}`;
+          renderEmbedControls();
+          renderPlotly3D(false);
+          updateDistanceAndInsightPanel();
+        });
+      }
+    }
+
+    /**
+     * Updates Cosine Similarity, Euclidean Distance, 3D Vector Readout, and Dynamic Insight Box
+     */
+    function updateDistanceAndInsightPanel() {
+      const coords = embedState.coordsByMode[embedState.mode];
+      const idxA = embedState.items.indexOf(embedState.selectedA);
+      const idxB = embedState.items.indexOf(embedState.selectedB);
+
+      if (idxA < 0 || idxB < 0) return;
+
+      const vecA = coords[idxA];
+      const vecB = coords[idxB];
+      const cosSim = cosineSimilarity3D(vecA, vecB);
+      const eucDist = euclideanDistance3D(vecA, vecB);
+
+      // Update numbers
+      const cosEl = document.getElementById('cosineValue');
+      cosEl.textContent = `${cosSim >= 0 ? '+' : ''}${cosSim.toFixed(2)}`;
+      cosEl.className = `font-mono text-lg font-extrabold ${
+        cosSim >= 0.55 ? 'text-emerald-600' : cosSim <= 0 ? 'text-red-600' : 'text-amber-600'
+      }`;
+
+      // Map [-1, 1] -> [0%, 100%] for progress bar
+      const pctWidth = Math.round(((cosSim + 1) / 2) * 100);
+      const barEl = document.getElementById('cosineBar');
+      barEl.style.width = `${pctWidth}%`;
+      barEl.className = `h-full rounded-full transition-all duration-500 ${
+        cosSim >= 0.55 ? 'bg-emerald-500' : cosSim <= 0 ? 'bg-red-500' : 'bg-amber-500'
+      }`;
+
+      document.getElementById('euclideanValue').textContent = eucDist.toFixed(2);
+      document.getElementById('vecLabelA').textContent = `A ("${embedState.selectedA}")`;
+      document.getElementById('vecLabelB').textContent = `B ("${embedState.selectedB}")`;
+      document.getElementById('vecCoordsA').textContent = `(${vecA[0].toFixed(2)}, ${vecA[1].toFixed(2)}, ${vecA[2].toFixed(2)})`;
+      document.getElementById('vecCoordsB').textContent = `(${vecB[0].toFixed(2)}, ${vecB[1].toFixed(2)}, ${vecB[2].toFixed(2)})`;
+
+      // Update Dynamic Educational Insight Box
+      const itemA = embedState.selectedA;
+      const itemB = embedState.selectedB;
+      const catA = classifyCategory(itemA);
+      const catB = classifyCategory(itemB);
+      const overlap = computeCharOverlapStats(itemA, itemB);
+
+      const titleEl = document.getElementById('insightTitle');
+      const tagEl = document.getElementById('insightTag');
+      const bodyEl = document.getElementById('insightBody');
+
+      if (embedState.mode === 'spelling') {
+        tagEl.textContent = 'Mode A: Spelling-Based (Lexical)';
+        titleEl.textContent = `Lexical Analysis: "${itemA}" vs. "${itemB}"`;
+
+        const sharedStr = overlap.shared.length
+          ? `shared characters (${overlap.shared.map((c) => `'${c}'`).join(', ')})`
+          : 'no shared characters';
+
+        if (itemA === itemB) {
+          bodyEl.innerHTML = `You selected the exact same item (<strong>"${escapeHtml(itemA)}"</strong>), so its character N-grams match 100% with a Cosine Similarity of <strong>+1.00</strong> and Euclidean Distance of <strong>0.00</strong>.`;
+        } else if (overlap.pct >= 45 || cosSim >= 0.45) {
+          bodyEl.innerHTML = `In <strong>Spelling-Based</strong> mode, <strong>"${escapeHtml(itemA)}"</strong> and <strong>"${escapeHtml(itemB)}"</strong> sit close together (Euclidean distance <strong>${eucDist.toFixed(2)}</strong>) because they share <strong>${overlap.pct}% character overlap</strong> with ${sharedStr}. Notice that lexical models don't understand meaning—switch to <strong>Meaning-Based</strong> mode to see if they still belong together!`;
+        } else {
+          bodyEl.innerHTML = `In <strong>Spelling-Based</strong> mode, <strong>"${escapeHtml(itemA)}"</strong> and <strong>"${escapeHtml(itemB)}"</strong> are placed far apart (distance <strong>${eucDist.toFixed(2)}</strong>) because they have only <strong>${overlap.pct}% character overlap</strong> (${sharedStr}). Even if two words mean the exact same thing (like <em>"car"</em> and <em>"automobile"</em>), spelling-based vectors cannot connect them!`;
+        }
+      } else {
+        tagEl.textContent = 'Mode B: Meaning-Based (Semantic)';
+        titleEl.textContent = `Semantic Analysis: "${itemA}" vs. "${itemB}"`;
+
+        if (itemA === itemB) {
+          bodyEl.innerHTML = `Both points refer to <strong>"${escapeHtml(itemA)}"</strong>, so they occupy the exact same semantic coordinates (Cosine Similarity <strong>+1.00</strong>).`;
+        } else if (catA === catB && cosSim >= 0.65) {
+          bodyEl.innerHTML = `In <strong>Meaning-Based</strong> mode, <strong>"${escapeHtml(itemA)}"</strong> and <strong>"${escapeHtml(itemB)}"</strong> cluster tightly in the <strong>${CATEGORY_STYLES[catA].label}</strong> region (Cosine Similarity <strong>+${cosSim.toFixed(2)}</strong>, distance <strong>${eucDist.toFixed(2)}</strong>)—even though their spelling overlap is only <strong>${overlap.pct}%</strong>! Neural embeddings learn this from surrounding context during pre-training.`;
+        } else {
+          bodyEl.innerHTML = `In <strong>Meaning-Based</strong> mode, <strong>"${escapeHtml(itemA)}"</strong> (${CATEGORY_STYLES[catA].label}) and <strong>"${escapeHtml(itemB)}"</strong> (${CATEGORY_STYLES[catB].label}) sit in completely different regions of 3D space (Cosine Similarity <strong>${cosSim >= 0 ? '+' : ''}${cosSim.toFixed(2)}</strong>, distance <strong>${eucDist.toFixed(2)}</strong>). Even if they look similar on paper (${overlap.pct}% spelling overlap), an LLM separates them by concept.`;
+        }
+      }
+    }
+
+    /**
+     * Switches between 'spelling' and 'meaning' modes with smooth 3D point animation
+     */
+    function setEmbeddingMode(newMode) {
+      if (embedState.mode === newMode) return;
+      embedState.mode = newMode;
+
+      const slider = document.getElementById('modeSliderPill');
+      const btnSpelling = document.getElementById('modeSpellingBtn');
+      const btnMeaning = document.getElementById('modeMeaningBtn');
+      const badge = document.getElementById('plotModeBadge');
+
+      if (newMode === 'spelling') {
+        slider.style.transform = 'translateX(0%)';
+        btnSpelling.classList.replace('text-charcoal', 'text-white');
+        btnMeaning.classList.replace('text-white', 'text-charcoal');
+        btnSpelling.setAttribute('aria-selected', 'true');
+        btnMeaning.setAttribute('aria-selected', 'false');
+        badge.textContent = 'Mode A: Spelling-Based (Char N-Grams)';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500 text-white';
+      } else {
+        slider.style.transform = 'translateX(100%)';
+        btnSpelling.classList.replace('text-white', 'text-charcoal');
+        btnMeaning.classList.replace('text-charcoal', 'text-white');
+        btnSpelling.setAttribute('aria-selected', 'false');
+        btnMeaning.setAttribute('aria-selected', 'true');
+        badge.textContent = 'Mode B: Meaning-Based (Semantic Space)';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-600 text-white';
+      }
+
+      renderPlotly3D(true);
+      updateDistanceAndInsightPanel();
+    }
+
+    /**
+     * Shows a brief inline feedback message in the Embedding Controls card (no alert!)
+     */
+    function showEmbedFeedback(msg) {
+      const el = document.getElementById('embedFeedback');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(showEmbedFeedback._timer);
+      showEmbedFeedback._timer = setTimeout(() => el.classList.add('hidden'), 3200);
+    }
+
+
+    /* =========================================================================
+       EVENT LISTENERS & INITIALIZATION
+       ========================================================================= */
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- Part 1 Listeners ---
+      const mergeSlider = document.getElementById('mergeStepsSlider');
+      const mergeValEl = document.getElementById('mergeStepsValue');
+
+      mergeSlider.addEventListener('input', () => {
+        mergeValEl.textContent = `${mergeSlider.value} merges`;
+      });
+      mergeSlider.addEventListener('change', rebuildBPEFromUI);
+
+      document.getElementById('buildVocabBtn').addEventListener('click', rebuildBPEFromUI);
+
+      document.getElementById('resetCorpusBtn').addEventListener('click', () => {
+        document.getElementById('corpusInput').value = DEFAULT_CORPUS;
+        mergeSlider.value = 28;
+        mergeValEl.textContent = '28 merges';
+        rebuildBPEFromUI();
+      });
+
+      document.getElementById('vocabSearchInput').addEventListener('input', (e) => {
+        renderVocabTable(e.target.value);
+      });
+
+      document.getElementById('tokenizeBtn').addEventListener('click', runEncodingUI);
+      document.getElementById('includeSpecialTokens').addEventListener('change', runEncodingUI);
+      document.getElementById('testSentenceInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') runEncodingUI();
+      });
+
+      // Clipboard Copy using document.execCommand('copy') for iframe safety
+      document.getElementById('copyIdsBtn').addEventListener('click', () => {
+        const text = document.getElementById('finalIdArray').textContent;
+        const temp = document.createElement('textarea');
+        temp.value = text;
+        temp.style.position = 'fixed';
+        temp.style.opacity = '0';
+        document.body.appendChild(temp);
+        temp.select();
+        try {
+          document.execCommand('copy');
+          const label = document.getElementById('copyIdsLabel');
+          label.textContent = 'Copied!';
+          setTimeout(() => { label.textContent = 'Copy IDs'; }, 1600);
+        } catch (err) {
+          console.error('Copy failed', err);
+        } finally {
+          document.body.removeChild(temp);
+        }
+      });
+
+      // --- Part 2 Listeners ---
+      document.getElementById('modeSpellingBtn').addEventListener('click', () => setEmbeddingMode('spelling'));
+      document.getElementById('modeMeaningBtn').addEventListener('click', () => setEmbeddingMode('meaning'));
+
+      const addCustomItem = () => {
+        const input = document.getElementById('newEmbedItemInput');
+        const val = input.value.trim();
+        if (!val) {
+          showEmbedFeedback('Please enter a word or short sentence to add.');
+          return;
+        }
+        if (embedState.items.some((x) => x.toLowerCase() === val.toLowerCase())) {
+          showEmbedFeedback(`"${val}" is already plotted in the 3D space.`);
+          return;
+        }
+        embedState.items.push(val);
+        embedState.selectedB = val;
+        input.value = '';
+        recomputeAllEmbeddings();
+        renderEmbedControls();
+        renderPlotly3D(false);
+        updateDistanceAndInsightPanel();
+        showEmbedFeedback(`Added "${val}" and selected it as Item B for comparison.`);
+      };
+
+      document.getElementById('addEmbedItemBtn').addEventListener('click', addCustomItem);
+      document.getElementById('newEmbedItemInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') addCustomItem();
+      });
+
+      document.getElementById('resetEmbedDefaultsBtn').addEventListener('click', () => {
+        embedState.items = [...DEFAULT_EMBED_ITEMS];
+        embedState.selectedA = 'car';
+        embedState.selectedB = 'cat';
+        recomputeAllEmbeddings();
+        renderEmbedControls();
+        renderPlotly3D(false);
+        updateDistanceAndInsightPanel();
+      });
+
+      // Delegate chip removal
+      document.getElementById('embedChipsContainer').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-remove-item]');
+        if (!btn) return;
+        if (embedState.items.length <= 3) {
+          showEmbedFeedback('Keep at least 3 items in the 3D space for meaningful projection.');
+          return;
+        }
+        const target = btn.getAttribute('data-remove-item');
+        embedState.items = embedState.items.filter((x) => x !== target);
+        recomputeAllEmbeddings();
+        renderEmbedControls();
+        renderPlotly3D(false);
+        updateDistanceAndInsightPanel();
+      });
+
+      // Dropdown changes
+      document.getElementById('compareSelectA').addEventListener('change', (e) => {
+        embedState.selectedA = e.target.value;
+        renderEmbedControls();
+        renderPlotly3D(false);
+        updateDistanceAndInsightPanel();
+      });
+
+      document.getElementById('compareSelectB').addEventListener('change', (e) => {
+        embedState.selectedB = e.target.value;
+        renderEmbedControls();
+        renderPlotly3D(false);
+        updateDistanceAndInsightPanel();
+      });
+
+      // Preset pair buttons
+      document.querySelectorAll('.preset-pair-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const [a, b] = btn.getAttribute('data-pair').split('|');
+          if (!embedState.items.includes(a) || !embedState.items.includes(b)) {
+            showEmbedFeedback(`Click "Reset Defaults" to restore "${a}" and "${b}".`);
+            return;
+          }
+          embedState.selectedA = a;
+          embedState.selectedB = b;
+          renderEmbedControls();
+          renderPlotly3D(false);
+          updateDistanceAndInsightPanel();
+        });
+      });
+
+      // Handle window resize smoothly for Plotly
+      window.addEventListener('resize', () => {
+        const container = document.getElementById('plotly3dContainer');
+        if (embedState.plotInitialized && container) {
+          Plotly.Plots.resize(container);
+        }
+      });
+
+      // --- Initial Boot: Pre-load & Run Everything Immediately ---
+      rebuildBPEFromUI();
+      recomputeAllEmbeddings();
+      renderEmbedControls();
+      renderPlotly3D(false);
+      updateDistanceAndInsightPanel();
+    });
+  </script>
+</body>
+</html>
